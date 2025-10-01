@@ -75,6 +75,91 @@ printer.print = function(self,...)
   
 end
 
+---- ---- ---- -- -- ---- ---- ---- --
+
+
+
+---- ---- ---- -- -- ---- ---- ---- --
+-- F-string - python like f'someString'
+---- ---- ---- -- -- ---- ---- ---- --
+
+---- ---- ---- -- -- ---- ---- ---- --
+local _isIdentifier, _findLocalUpvalue
+---- ---- ---- -- -- ---- ---- ---- --
+local _locals = nil
+---- ---- ---- -- -- ---- ---- ---- --
+
+-- This adds a printer.f method (case-insensitive) for lua which works similarly to python like F-string in lua.  
+
+-- example: basic embedding 
+-- -- local name = 'Bob'; print(f"Hello, {name}!") --> output: Hello, Bob!
+
+---- ------ ----
+
+printer.f = function(value)
+  
+  _locals = {}; local locals = _locals
+  
+  local sub = value:gsub("(%b{})",
+  
+  function(match) 
+
+   local capture = match:sub(2,#match - 1)
+   if _isIdentifier(capture) then
+
+    local upvalue = _findLocalUpvalue(capture)
+    return upvalue and 
+      tostring(upvalue) or "" 
+       
+    else
+     print(cat{_timestamp()," printer.lua: error, invalid formatter: '{",capture,"}' passed to printer.f for string: '",value,"' ..."})
+    end; 
+    
+  end) _locals = nil; 
+
+ return sub end
+
+---- ---- ---- -- -- ---- ---- ---- --
+printer.F = f ---- --- ---- --- --
+---- ---- ---- -- -- ---- ---- ---- --
+
+---- ---- --- -- --- ---- ---- 
+-- helper: determines if a string name is a valid variable name in lua
+
+_isIdentifier = function(name)
+  if type(name) ~= "string" then 
+  return false end
+  return name:match("^[_%a][_%w]*$") 
+end
+
+---- ---- --- -- --- ---- ---- 
+-- helper: creates iterator for vararg
+
+_findLocalUpvalue = function(varName)
+  
+   local locals,idx,name,value = _locals,1,""
+  
+   while name do
+    if locals[idx] then 
+     name,value = locals[idx].name,locals[idx].value 
+    else
+     name,value = debug.getlocal(5,idx)
+     locals[idx] = {
+      name = name, value = value
+     } end
+     -- print("The name:",name)
+    if name == varName then break end
+      idx = idx + 1
+    end 
+    
+    -- print("The capture:",capture,name,value)
+   
+    return value;
+  
+end
+
+---- ---- ---- -- -- ---- ---- ---- --
+
 
 ---- ---- ---- -- -- ---- ---- ---- --
 
@@ -238,5 +323,3 @@ printer:init(); return printer ---- -->
 ----- ----------- ----------- -----------  
 -- {{ File End - printer.lua }}
 ----- ----------- ----------- -----------  
-
-
