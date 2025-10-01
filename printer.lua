@@ -9,11 +9,13 @@
 -------------------------------------------
 
 ---- ---- ---- -- -- ---- ---- ---- --
-local cat,unpack,insert,sort,iter,push = table.concat, unpack and unpack or table.unpack, table.insert, table.sort
+local cat,unpack,insert,sort,load,iter,push = table.concat, unpack and unpack or table.unpack, table.insert, table.sort, load and load or loadstring
 ---- ---- ---- -- -- ---- ---- ---- --
-local _tostringHandlers,_isArray, _getKeyList, _timestamp, _escapeStr;
+
 ---- ---- ---- -- -- ---- ---- ---- --
-local _print = print
+local _tostringHandlers,_isArray, _listKeys, _timestamp, _escapeStr;
+---- ---- ---- -- -- ---- ---- ---- --
+local _print, _tostring = print, tostring
 ---- ---- ---- -- -- ---- ---- ---- --
 
 local printer = {}
@@ -57,18 +59,9 @@ printer.print = function(self,...)
 
   local out,len,arg,format = {}, select("#",...)
   
-  local handlers = _tostringHandlers
-  
   for i = 1, len do
-    
-   arg = select(i,...); format = type(arg)
-    
-   if type(arg) == "table" then  
-    arg = _isArray(arg) and handlers.array(arg) or handlers.table(arg)    
-   end
-    
-    insert(out,arg)
-    
+   arg = select(i,...); 
+   insert(out,self.tostring(arg))
   end
 
   self._print(unpack(out,1,len))
@@ -76,8 +69,23 @@ printer.print = function(self,...)
 end
 
 ---- ---- ---- -- -- ---- ---- ---- --
+-- handles behavior for tostring conversion for a lua value ...
 
+printer.tostring = function(value,opt)
+  
+   local isArray,isTable = false,false
+   local handlers = _tostringHandlers
 
+   if type(value) == "table" then  
+    if _isArray(value) then isArray = true;
+      value = handlers.array(value,opt)
+    else isTable = true 
+     value = handlers.table(value,opt)     
+   end end
+    
+  return value -- returns: (string) 
+
+end
 
 ---- ---- ---- -- -- ---- ---- ---- --
 -- F-string - python like f'someString'
@@ -86,7 +94,7 @@ end
 ---- ---- ---- -- -- ---- ---- ---- --
 local _isIdentifier, _findLocalUpvalue
 ---- ---- ---- -- -- ---- ---- ---- --
-local _locals = nil
+local _locals, _eval = nil
 ---- ---- ---- -- -- ---- ---- ---- --
 
 -- This adds a printer.f method (case-insensitive) for lua which works similarly to python like F-string in lua.  
@@ -105,15 +113,12 @@ printer.f = function(value)
   function(match) 
 
    local capture = match:sub(2,#match - 1)
-   if _isIdentifier(capture) then
+    
+   -- attempts to load expression 
+   local out = _eval(capture)
+   if out then return tostring(out) end
 
-    local upvalue = _findLocalUpvalue(capture)
-    return upvalue and 
-      tostring(upvalue) or "" 
-       
-    else
-     print(cat{_timestamp()," printer.lua: error, invalid formatter: '{",capture,"}' passed to printer.f for string: '",value,"' ..."})
-    end; 
+   print(cat{_timestamp()," printer.lua: error, invalid formatter: '{",capture,"}' passed to printer.f for string: '",value,"' ..."});
     
   end) _locals = nil; 
 
@@ -133,7 +138,25 @@ _isIdentifier = function(name)
 end
 
 ---- ---- --- -- --- ---- ---- 
--- helper: creates iterator for vararg
+-- helper: attempts to evaluate identifier or expression 
+
+_eval = function(str)
+  if _isIdentifier(str) then
+   return _findLocalUpvalue(str)
+
+--[[
+
+ -- TODO - evaluate expression i.e. a + b + c
+ else  
+  local out = load(cat{"return function() return "..expression," end"})()
+  print("out:",out)    
+]]
+  
+ end return
+end -- returns: (string) output of load()
+
+---- ---- --- -- --- ---- ---- 
+-- helper: finds a local upvalue (debug)
 
 _findLocalUpvalue = function(varName)
   
@@ -180,10 +203,10 @@ end
 -- printer:preventDefault()
 -- printer.handleDefault 
 
-
 ---- ---- --- -- --- ---- ---- ---- --- -- 
 -- ::helpers:: -- default printer ...
 ---- ---- --- -- --- ---- ---- ---- --- -- 
+
 
 ---- ---- --- -- --- ---- ---- 
 -- helper: creates iterator for vararg
@@ -198,14 +221,14 @@ end -- returns: (function - iterator)
 ---- ---- --- -- --- ---- ---- 
 -- helper: pushes values to the end of table
 
-push = function(self,...)
+push = function(obj,...)
   local insert,val = table.insert
   for i = 1, select("#",...) do
-  val = select(i,...); insert(self,val) end
+  val = select(i,...); insert(obj,val) end
 return obj end
 
 ---- ---- --- -- --- ---- ---- 
--- helper: determines if a data value is lua array in 
+-- helper: determines if a lua table only has indecies or has table keys ...
 
 _isArray = function(self)
   
@@ -265,7 +288,7 @@ end --> returns: (string) escaped string
 ---- ---- --- -- --- ---- ---- 
 -- helper: gets list of all keys and indexies in lua table
 
-_getKeyList = function(tab)
+_listKeys = function(tab)
   local keys,i,n = {}, next(tab)
   while(n) do
     insert(keys,i); i,n = next(tab,i)
@@ -283,7 +306,7 @@ _tostringHandlers = {
   
  -- creates: header strings with access offset i.e. (table[#] 0x000):
   
- _tableHeader = function(self)
+ _tableHeader = function(self,opt)
   local cat,meta = table.concat, getmetatable(self); setmetatable(self,nil)
   local str = cat{"(table[",#self,"]: ",tostring(self):match("0x%x+"),"):"}
   setmetatable(self,meta) 
@@ -291,19 +314,20 @@ _tostringHandlers = {
 
  -- handles: lua table with only array indexies
   
- array = function(self) 
+ array = function(self,opt) 
   local cat,header = table.concat,
    _tostringHandlers._tableHeader
+  local values = {} for i = 1, #self do
+   insert(values,tostring(self,opt)) end
   local str = cat {
-   header(self),"{",cat(self,", "),"}" };
+   header(self),"{",cat(values,", "),"}" };
  return str end,
   
- table = function(self)
+ table = function(self,opt)
   local cat,entries,header = table.concat,{},
    _tostringHandlers._tableHeader
-  for i,key in iter(_getKeyList(self)) do
-   insert(entries,cat{key,":",
-    tostring(self[key])}) end
+  for i,key in iter(_listKeys(self)) do
+   insert(entries,cat{key,":", tostring(self[key])}) end
   local str = cat {
    header(self),"{",cat(entries,", "),"}" };
  return str end
