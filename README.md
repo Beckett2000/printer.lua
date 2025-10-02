@@ -17,14 +17,8 @@ The printer class will be able to print out and format data sent to the console 
 
 local myPrinter = printer()
 print = myPrinter.print
-f = myPrinter.f
-  
+
 print("Hello World!",{1,2,3,4},{a = 1, b = 2, c = 3})
-
-local name = "Printer"
-
--- starting to add some python like f"string" behavior ...
-print(f"Hello {name}!") 
 
 ```
 
@@ -34,6 +28,24 @@ Expected Output:
 Hello World!
 (table[4]: 0x11f1ce380):{1, 2, 3, 4}	
 (table[0]: 0x11f1cddc0):{a:1, b:2, c:3}
+Hello Printer!
+```
+
+`printer.f / printer.F` - print formatting
+
+```lua
+
+f = myPrinter.f
+  
+local name = "Printer"
+-- starting to add some python like f"string" behavior ...
+print(f"Hello {name}!") 
+
+```
+
+```
+Expected Output:
+
 Hello Printer!
 ```
 
