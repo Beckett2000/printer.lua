@@ -451,7 +451,7 @@ _tostringHandlers = {
   local spacer = opt.lengths and opt.offsets and ": " or "";
     
   local str = cat{"(table",len,spacer,
-    offset,"):"}
+    offset,")"}
     
   setmetatable(self,meta);
     
@@ -587,7 +587,7 @@ _handleToString = function(val,opt)
   -- adds string data for leveles of nested tables. Defalts to level 1
   
   if depth == 0 then
-    return cat{descriptor,")"}
+    return descriptor
   end
   
   ---- --- ---- --- ---- --- ----
@@ -647,7 +647,7 @@ _handleToString = function(val,opt)
     elseif formatV == "table" then
       
       if depth <= 1 then
-        value = cat{"(", tableName(val,settings),")"}
+        value = tableName(val,settings)
         
       else -- shows {sub tables} (level > 1)
         
@@ -714,7 +714,7 @@ _handleToString = function(val,opt)
      push(padding,spacer) end end
   end
   
-  return cat{descriptor,"{", cat(entries,", "), cat(padding), "}"}
+  return cat{descriptor,":{", cat(entries,", "), cat(padding), "}"}
   
   ---- --- ---- --- ---- --- ----
   
