@@ -30,6 +30,28 @@ Hello World!
 (table[0]: 0x11f1cddc0):{a:1, b:2, c:3}
 ```
 
+`printer.tostring` - tostring options
+```lua
+print(myPrinter.tostring({"a","b",{"a","b"},"c","d"},{depth = 2, style = "v"}))
+```
+
+```
+Expected Output:
+
+(table[5]: 0x155ccc740):{
+  01:"a", 
+  02:"b", 
+  03:(table[2]: 0x155ccc780):{
+   01:"a", 
+   02:"b"
+  }, 
+  04:"c", 
+  05:"d"
+}
+
+```
+
+
 `printer.f / printer.F` - print formatting
 
 ```lua
