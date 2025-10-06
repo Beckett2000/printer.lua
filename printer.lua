@@ -1,33 +1,39 @@
--------------------------------------------
+---------- ---------- ---------- ---------- 
 -- printer.lua - 0.1 - (BD - 2025) - print formatting methods for Lua ...
----------- ---------- ---------- ---------- ---------- ---------- ---------- ----------
+---------- ---------- ---------- ---------- 
 
--- this class offers a collection of methods to expand the default print behavior in Lua and add print formatting ...
+-- this class offers a collection of methods to expand the default print behavior in Lua and add print formatting / pretty printing for data values ...
 
 -------------------------------------------
 -- if true then return end -- --- ---- -- 
 -------------------------------------------
 
--------------------------------------------
 ---- ---- ---- -- -- ---- ---- ---- --
-local cat,unpack,insert,sort,load = table.concat, unpack and unpack or table.unpack, table.insert, table.sort, load and load or loadstring
+local cat,unpack,insert,sort = table.concat, unpack and unpack or table.unpack, table.insert, table.sort;
+local floor,abs = math.floor, math.abs;
+local load = load and load or loadstring;
 ---- ---- ---- -- -- ---- ---- ---- --
-local floor,abs,round = math.floor, math.abs
----- ---- ---- -- -- ---- ---- ---- --
-local iter,push,copy;
----- ---- ---- -- -- ---- ---- ---- --
--------------------------------------------
 
 ---- ---- ---- -- -- ---- ---- ---- --
 local _tostringHandlers, _handleToString
-local _isArray, _listKeys, _timestamp, _escapeStr;
+local round,iter,push,copy,keys,escapeStr,
+isArray, containsIndexies;
 ---- ---- ---- -- -- ---- ---- ---- --
 
+local _print = {}; -- wraps default print() method for internal class / module use ...
+
+setmetatable(_print,{ 
+ __call =  function(self,...)
+   print(...)
+ end })
+
 ---- ---- ---- -- -- ---- ---- ---- --
-local _print, _tostring = print, tostring
+local _timestamp;
 ---- ---- ---- -- -- ---- ---- ---- --
 
--------------------------------------- --- >>
+-- module export: printer class 
+
+local printer = {} -- print class base object
 
 ---- ---- --- -- --- ---- ---- ---- --- -- 
 -- ::defaults:: - settings for string gen. 
@@ -56,22 +62,21 @@ local _tostringSettings = {
   
 }
 
----- ---- --- -- --- ---- ---- ---- --- -- 
+-- ---- ------ ---- ------ ---- ------ ----
 
--------------------------------------- --- >>
 
 ---- ---- --- -- --- ---- ---- ---- --- -- 
 -- ::class_methods:: -- default printer ...
 ---- ---- --- -- --- ---- ---- ---- --- -- 
-
-local printer = {} -- print class base object
 
 ---- ---- ---- -- -- ---- ---- ---- --
 -- printer.init() -- Initializes printer class after object creation - WIP
 ---- ---- ---- -- -- ---- ---- ---- --
 
 printer.init = function(self)
+  
   self:attach()
+  
 end
 
 ---- ---- ---- -- -- ---- ---- ---- --
@@ -82,26 +87,24 @@ printer.new = function(super)
   
   super = super and super or printer
   
-  self = {
-   print = function(...)
-      return super:print(...)
-    end
-  }
+  local _print = copy(_print)
+  setmetatable(_print,{
+   __call = function(self,...)
+    return super:print(...)
+   end })
   
-  setmetatable( self, 
+  self = {print = _print}
+  
+  setmetatable(self, 
    { __index = super,  __call = super.new })
   
-  self:init()
-  
-  return self;
+  self:init(); return self;
   
 end
 
 ---- ---- ---- -- -- ---- ---- ---- --
--- printer.print(...)
+-- printer.print(...) -- handles behavior for printing (called in place of default print() function when attached)
 ---- ---- ---- -- -- ---- ---- ---- --
-
--- handles behavior for printing (called in place of default print() function when attached)
 
 printer.print = function(self,...)
 
@@ -116,11 +119,10 @@ printer.print = function(self,...)
   
 end
 
----- ---- ---- -- -- ---- ---- ---- --
--- printer.tostring(value,opt)
----- ---- ---- -- -- ---- ---- ---- --
 
--- converts a lua value into a string output with given options (note: some of this logic may live outside of tostring in the future)
+---- ---- ---- -- -- ---- ---- ---- --
+-- printer.tostring(value,opt) -- converts a lua value into a string output with given options (note: some of this logic may live outside of tostring in the future)
+---- ---- ---- -- -- ---- ---- ---- --
 
 -- Holds accepted data types for tostring options argument:
 
@@ -158,7 +160,7 @@ printer.tostring = function(value,opt)
   local handlers = _tostringHandlers
 
   if type(value) == "table" then  
-   if _isArray(value) then isArray = true;
+   if isArray(value) then isArray = true;
     value = handlers.array(value,opt)
    else isTable = true 
     value = handlers.table(value,opt)     
@@ -168,10 +170,10 @@ printer.tostring = function(value,opt)
 
 end
 
--------------------------------------- --- >>
+-- ---- ------ ---- ------ ---- ------ ----
 
 ---- ---- ---- -- -- ---- ---- ---- --
--- F-string - python like f'someString'
+-- (WIP) F-string - python like f'someString' 
 ---- ---- ---- -- -- ---- ---- ---- --
 
 ---- ---- ---- -- -- ---- ---- ---- --
@@ -266,13 +268,13 @@ _findLocalUpvalue = function(varName)
 end
 
 ---- ---- ---- -- -- ---- ---- ---- --
--------------------------------------- --- >>
+-- ---- ------ ---- ------ ---- ------ ----
 ---- ---- ---- -- -- ---- ---- ---- --
 
 -- TODO - Make these register and unregister with a given print in an environment without manually needing to say print = myPrinter.print
 
 printer.attach = function(self)
-  self._print = print
+   self._print = print
 end
 
 printer.detach = function(self)
@@ -280,7 +282,7 @@ printer.detach = function(self)
 end
 
 ---- ---- --- -- --- ---- ---- 
--------------------------------------- --- >>
+-- ---- ------ ---- ------ ---- ------ ----
 
 ---- ---- --- -- --- ---- ---- ---- --- -- 
 -- ::helpers:: - utility helpers for printer 
@@ -355,9 +357,49 @@ copy = function(self,depth,temps)
 end -- returns: (table/value) - copy of value
 
 ---- ---- --- -- --- ---- ---- 
+-- helper: gets list of keys and indexies in lua table. (optional) indexies - if true then numerical indecies are also included. defaults to true ...
+
+keys = function(self,indexies)
+  
+  local keys,key,form = {}, next(self)
+  indexies = indexies and indexies or true;
+  local continue;
+  
+  while key do continue = false 
+    if indexies == true then form = type(key);
+      if form == "number" and key <= #self then continue = true; end end
+    if not continue then insert(keys,key) end   
+    key = next(self,key) 
+  end sort(keys); 
+  
+  return unpack(keys,1,#keys)
+  
+end -- returns: (vararg) - key name(s)
+
+
+---- ---- --- -- --- ---- ---- 
+-- helper: determines if a given table contains one or more variables
+
+containsIndexies = function(self,...)
+  
+ local args,len = {}, select("#",...)
+  
+ for i = 1, len do
+  args[select(i,...)] = false end
+ local index
+ for i = 1, #self do index = self[i]; 
+  if args[index] == false then
+    args[index] = nil
+ end end
+  
+ return #args == 0
+  
+end
+
+---- ---- --- -- --- ---- ---- 
 -- helper: determines if a lua table only has indecies or has table keys ...
 
-_isArray = function(self)
+isArray = function(self)
   
   if type(self) ~= "table" then 
   return false end
@@ -406,26 +448,12 @@ end --> (string) timestamp '(00:00:00)'
 ---- ---- --- -- --- ---- ---- 
 -- helper: escapes magic characters in string
 
-_escapeStr = function(str)
+escapeStr = function(str)
   str = str:gsub("[%(%)%.%%%+%-%*%?*[*^%$]",
   "%%%1"); return str
 end --> returns: (string) escaped string
 
-
----- ---- --- -- --- ---- ---- 
--- helper: gets list of all keys and indexies in lua table
-
-_listKeys = function(tab)
-  local keys,i,n = {}, next(tab)
-  while(n) do
-    insert(keys,i); i,n = next(tab,i)
-  end sort(keys)
-  return unpack(keys,1,#keys)
-  
-end --> returns vararg keys / indexies
-
-
--------------------------------------- --- >>
+-- ---- ------ ---- ------ ---- ------ ----
 
 ---- ---- --- -- --- ---- ---- ---- --- -- 
 -- ::tostring_helpers:: -- default printer ...
@@ -437,6 +465,7 @@ _tostringHandlers = {
   
  _tableHeader = function(self,opt)
     
+  if not self then return "" end
   local cat,meta = table.concat, getmetatable(self); setmetatable(self,nil);
   local settings = _tostringSettings
   
@@ -460,18 +489,21 @@ _tostringHandlers = {
  -- handles: lua table with only array indexies
   
  array = function(self,opt) 
+  if not self then return "" end
   local cat,header = table.concat,
    _tostringHandlers._tableHeader
   local values = {} for i = 1, #self do
-   insert(values,tostring(self,opt)) end
+   insert(values,
+    printer.tostring(self[i],opt)) end
   local str = cat {
    header(self),"{",cat(values,", "),"}" };
  return str end,
   
  table = function(self,opt)
+  if not self then return "" end
   local cat,entries,header = table.concat,{},
    _tostringHandlers._tableHeader
-  for i,key in iter(_listKeys(self)) do
+  for i,key in iter(keys(self)) do
    insert(entries,cat{key,":", tostring(self[key])}) end
   local str = cat {
    header(self),"{",cat(entries,", "),"}" };
@@ -479,22 +511,36 @@ _tostringHandlers = {
   
 }
 
--------------------------------------- --- >>
+-- ---- ------ ---- ------ ---- ------ ----
+-- _print aliase(s) from tostringHandler
+-- ---- ------ ---- ------ ---- ------ ----
 
------------- ------------ ------------ 
+-- prints indexies in a table ...
+_print.array = function(self,opt) 
+  _print(_tostringHandlers.array(self,opt))
+end
+
+-- prints indexies and keys in a table ...
+_print.table = function(self,opt) 
+ _print(_tostringHandlers.table(self,opt))
+end 
+
+-- ---- ------ ---- ------ ---- ------ ----
+
+
+-- ---- ------ ---- ------ ---- ------ ----
+
 -- _handleToString - converts data values (namely tables) to readable strings
 
 -- TBA - note (10/2/25) - the handleToString behavior was adapded from 'object' and adds in print formatting for the printer.tostring method such as spacing and indentation, but is going to be expanded to have more options and more easily accessable properties.  
 
--- fix some character displays for nested tables !!
+-- --- -- --- -- --- -- --- -- --- --
+local _acceptedOptions -- (*) --- -- --- --
+-- --- -- --- -- --- -- --- -- --- -- 
+
+-- (opt) - see accepted options below ...
 
 _handleToString = function(val,opt)
-  
-  -- string printing options to toString
-  if opt == "vertical" or opt == "v" then
-    opt = copy(_tostringSettings)
-    opt.style = "vertical"
-  end
   
   -- certain types are passed through to tostring unchanged
 
@@ -502,6 +548,36 @@ _handleToString = function(val,opt)
   if _type == "string" then return val
   elseif _type == "boolean" or _type == "number" or _type == "nil" then
    return tostring(val)     
+  end
+  
+  -- options can either be nil, a string value, or a table 
+  
+  local accepted = _acceptedOptions
+  local optType,category = type(opt)
+  
+  if optType == "string" and accepted.string["opt"] then
+    opt = accepted.string["opt"] end
+  
+  -- removes invalid print options ...
+  
+  if opt and optType == "table" then
+   local found;
+   for group,data in pairs(accepted.table) do
+    found = false; for _,key in iter(opt) do
+     if containsIndexies(group,opt) then
+      found = true; break end end
+    if not found then opt[key] = nil; end
+    end end 
+  
+ --   _print("These are the options:")
+ --  _print.table(opt)
+  
+  ---- --- ---- --- ---- --- ----
+  
+  -- string printing options to toString
+  if opt == "vertical" or opt == "v" then
+    opt = copy(_tostringSettings)
+    opt.style = "vertical"
   end
   
   local handleStr = _handleToString
@@ -718,9 +794,60 @@ _handleToString = function(val,opt)
   
   ---- --- ---- --- ---- --- ----
   
-end --> returns: serial descriptor string
+end -- returns: serial descriptor string
 
--------------------------------------- --- >>
+-- ---- ------ ---- ------ ---- ------ ----
+
+-- (accepted tostring options) - holds accepted option types for the tostring handler. currently either a table or a string can be passed.
+
+-- note: in the future a formatted config string may be able to be passed as well ...
+
+_acceptedOptions = {
+  
+  string = { -- (string) value passed as opt.
+    
+    ["v"] = {style = "v"},
+    ["v*"] = {style = "v", 
+     depth = math.huge},
+    
+    ["t"] = {style = "tree"},
+    ["t*"] = {style = "tree", 
+     depth = math.huge},
+    
+  }, --- ---- --- ----- --- ----
+  
+  table = { -- (table) value passed as opt
+    
+    [{"label"}] = {
+      type = "boolean"
+    },
+    
+    [{"offsets","offset"}] = {
+      type = "boolean"
+    },
+    
+    [{"length","length","len"}] = {
+      type = "boolean"
+    },
+    
+    ["spacer"] = {
+      type = "string"
+    },
+    
+    ["depth"] = {
+      type = "number"
+    },
+    
+    ["style"] = {
+      type = "string", 
+      accepts = {"vertical","v","inline"}
+    },
+    
+  }, --- ---- --- ----- --- ----
+  
+}
+
+-- ---- ------ ---- ------ ---- ------ ----
 
 ---- ---- ---- -- -- ---- ---- ---- --
 -- init meta for printer base class ...
