@@ -28,7 +28,6 @@ Expected Output:
 Hello World!
 (table[4]: 0x11f1ce380):{1, 2, 3, 4}	
 (table[0]: 0x11f1cddc0):{a:1, b:2, c:3}
-Hello Printer!
 ```
 
 `printer.f / printer.F` - print formatting
@@ -49,4 +48,4 @@ Expected Output:
 Hello Printer!
 ```
 
-TBA - print formatting, pretty print, print options
+TBA - f-string / printf , expanded tostring option set , printer config , tostring inheritence with printer instances
